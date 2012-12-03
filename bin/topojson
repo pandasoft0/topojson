@@ -31,11 +31,6 @@ var argv = optimist
       describe: "name of feature property to promote to geometry id",
       default: null
     })
-    .options("p", {
-      alias: "properties",
-      describe: "names of feature properties to keep (no name keeps all properties)",
-      default: null
-    })
     .options("help", {
       describe: "display this helpful message",
       default: false
@@ -62,7 +57,7 @@ argv._.forEach(function(file) {
 });
 
 // Convert GeoJSON to TopoJSON.
-object = topojson.topology(objects, +argv.q, argv.properties);
+object = topojson.topology(objects, +argv.q);
 
 // Simplify.
 if (+argv.s > 0) topojson.simplify(object, +argv.s);
