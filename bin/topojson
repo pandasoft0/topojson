@@ -24,7 +24,7 @@ var argv = optimist
     })
     .options("s", {
       alias: "simplify",
-      describe: "precision threshold for Visvalingam simplification, in steradians",
+      describe: "precision threshold for Visvalingam simplification",
       default: 0,
     })
     .options("id-property", {
