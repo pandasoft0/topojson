@@ -12,8 +12,5 @@ package.json: src/package.js topojson.js
 	node src/package.js > $@
 	@chmod a-w $@
 
-test: all
-	@npm test
-
 clean:
 	rm -f package.json component.json
