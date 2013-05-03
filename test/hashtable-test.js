@@ -31,10 +31,10 @@ suite.addBatch({
       },
       "handles hash collisions correctly": function(hashtable) {
         var h = hashtable(16);
-        h.get([0, 3]).push(0);
-        h.get([1, 1]).push(2);
-        assert.deepEqual(h.peek([0, 3]), [0]);
-        assert.deepEqual(h.peek([1, 1]), [2]);
+        h.get([0, 1]).push(0);
+        h.get([1, 2]).push(2);
+        assert.deepEqual(h.peek([0, 1]), [0]);
+        assert.deepEqual(h.peek([1, 2]), [2]);
       }
     },
     "get": {
@@ -54,10 +54,10 @@ suite.addBatch({
       },
       "handles hash collisions correctly": function(hashtable) {
         var h = hashtable(16);
-        h.get([0, 3]).push(0);
-        h.get([1, 1]).push(2);
-        assert.deepEqual(h.get([0, 3]), [0]);
-        assert.deepEqual(h.get([1, 1]), [2]);
+        h.get([0, 1]).push(0);
+        h.get([1, 2]).push(2);
+        assert.deepEqual(h.get([0, 1]), [0]);
+        assert.deepEqual(h.get([1, 2]), [2]);
       }
     }
   }

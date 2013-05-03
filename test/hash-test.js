@@ -20,8 +20,8 @@ suite.addBatch({
       assert.deepEqual(hash([0, 0]), 0);
     },
     "returns the expected value for a few test cases": function(hash) {
-      assert.deepEqual(hash([0, 3]), 15);
-      assert.deepEqual(hash([1, 1]), 15);
+      assert.deepEqual(hash([0, 1]), 15);
+      assert.deepEqual(hash([1, 2]), 15);
     }
   }
 });
