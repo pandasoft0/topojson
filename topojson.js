@@ -444,7 +444,7 @@ topojson = (function() {
   }
 
   return {
-    version: "1.3.0pre",
+    version: "1.3.0",
     mesh: mesh,
     feature: featureOrCollection,
     neighbors: neighbors,
