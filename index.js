@@ -5,4 +5,3 @@ topojson.clockwise = require("./lib/topojson/clockwise");
 topojson.filter = require("./lib/topojson/filter");
 topojson.prune = require("./lib/topojson/prune");
 topojson.bind = require("./lib/topojson/bind");
-topojson.stitch = require("./lib/topojson/stitch");
