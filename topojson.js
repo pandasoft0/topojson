@@ -2,7 +2,6 @@
   var topojson = {
     version: "1.5.4",
     mesh: mesh,
-    arcmesh: arcmesh,
     feature: featureOrCollection,
     neighbors: neighbors,
     presimplify: presimplify
@@ -89,28 +88,17 @@
     });
 
     function ends(i) {
-      var arc = topology.arcs[i < 0 ? ~i : i], p0 = arc[0], p1;
-      if (topology.transform) p1 = [0, 0], arc.forEach(function(dp) { p1[0] += dp[0], p1[1] += dp[1]; });
-      else p1 = arc[arc.length - 1];
-      return i < 0 ? [p1, p0] : [p0, p1];
+      var arc = topology.arcs[i], p0 = arc[0], p1 = [0, 0];
+      arc.forEach(function(dp) { p1[0] += dp[0], p1[1] += dp[1]; });
+      return [p0, p1];
     }
 
     var fragments = [];
-    for (var k in fragmentByEnd) {
-      var f = fragmentByEnd[k];
-      delete f.start;
-      delete f.end;
-      fragments.push(f);
-    }
-
+    for (var k in fragmentByEnd) fragments.push(fragmentByEnd[k]);
     return fragments;
   }
 
-  function mesh(topology) {
-    return object(topology, arcmesh.apply(this, arguments));
-  }
-
-  function arcmesh(topology, o, filter) {
+  function mesh(topology, o, filter) {
     var arcs = [];
 
     if (arguments.length > 1) {
@@ -118,8 +106,8 @@
           geom;
 
       function arc(i) {
-        var j = i < 0 ? ~i : i;
-        (geomsByArc[j] || (geomsByArc[j] = [])).push({i: i, g: geom});
+        if (i < 0) i = ~i;
+        (geomsByArc[i] || (geomsByArc[i] = [])).push(geom);
       }
 
       function line(arcs) {
@@ -132,7 +120,10 @@
 
       function geometry(o) {
         if (o.type === "GeometryCollection") o.geometries.forEach(geometry);
-        else if (o.type in geometryType) geom = o, geometryType[o.type](o.arcs);
+        else if (o.type in geometryType) {
+          geom = o;
+          geometryType[o.type](o.arcs);
+        }
       }
 
       var geometryType = {
@@ -145,13 +136,13 @@
       geometry(o);
 
       geomsByArc.forEach(arguments.length < 3
-          ? function(geoms) { arcs.push(geoms[0].i); }
-          : function(geoms) { if (filter(geoms[0].g, geoms[geoms.length - 1].g)) arcs.push(geoms[0].i); });
+          ? function(geoms, i) { arcs.push(i); }
+          : function(geoms, i) { if (filter(geoms[0], geoms[geoms.length - 1])) arcs.push(i); });
     } else {
       for (var i = 0, n = topology.arcs.length; i < n; ++i) arcs.push(i);
     }
 
-    return {type: "MultiLineString", arcs: merge(topology, arcs)};
+    return object(topology, {type: "MultiLineString", arcs: merge(topology, arcs)});
   }
 
   function featureOrCollection(topology, o) {
