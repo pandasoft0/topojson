@@ -2,27 +2,14 @@
   var topojson = {
     version: "1.5.4",
     mesh: mesh,
-    merge: merge,
     feature: featureOrCollection,
     neighbors: neighbors,
     presimplify: presimplify
   };
 
-  function stitch(topology, arcs) {
-    var stitchedArcs = {},
-        fragmentByStart = {},
-        fragmentByEnd = {},
-        fragments = [],
-        emptyIndex = -1;
-
-    // Stitch empty arcs first, since they may be subsumed by other arcs.
-    // TODO Empty arcs should always have length 1?
-    arcs.forEach(function(i, j) {
-      var arc = topology.arcs[i < 0 ? ~i : i], t;
-      if (!arc[1] || !arc[2] && !arc[1][0] && !arc[1][1]) {
-        t = arcs[++emptyIndex], arcs[emptyIndex] = i, arcs[j] = t;
-      }
-    });
+  function merge(topology, arcs) {
+    var fragmentByStart = {},
+        fragmentByEnd = {};
 
     arcs.forEach(function(i) {
       var e = ends(i),
@@ -38,6 +25,11 @@
           delete fragmentByStart[g.start];
           var fg = g === f ? f : f.concat(g);
           fragmentByStart[fg.start = f.start] = fragmentByEnd[fg.end = g.end] = fg;
+        } else if (g = fragmentByEnd[end]) {
+          delete fragmentByStart[g.start];
+          delete fragmentByEnd[g.end];
+          var fg = f.concat(g.map(function(i) { return ~i; }).reverse());
+          fragmentByStart[fg.start = f.start] = fragmentByEnd[fg.end = g.start] = fg;
         } else {
           fragmentByStart[f.start] = fragmentByEnd[f.end] = f;
         }
@@ -49,6 +41,43 @@
           delete fragmentByEnd[g.end];
           var gf = g === f ? f : g.concat(f);
           fragmentByStart[gf.start = g.start] = fragmentByEnd[gf.end = f.end] = gf;
+        } else if (g = fragmentByStart[start]) {
+          delete fragmentByStart[g.start];
+          delete fragmentByEnd[g.end];
+          var gf = g.map(function(i) { return ~i; }).reverse().concat(f);
+          fragmentByStart[gf.start = g.end] = fragmentByEnd[gf.end = f.end] = gf;
+        } else {
+          fragmentByStart[f.start] = fragmentByEnd[f.end] = f;
+        }
+      } else if (f = fragmentByStart[start]) {
+        delete fragmentByStart[f.start];
+        f.unshift(~i);
+        f.start = end;
+        if (g = fragmentByEnd[end]) {
+          delete fragmentByEnd[g.end];
+          var gf = g === f ? f : g.concat(f);
+          fragmentByStart[gf.start = g.start] = fragmentByEnd[gf.end = f.end] = gf;
+        } else if (g = fragmentByStart[end]) {
+          delete fragmentByStart[g.start];
+          delete fragmentByEnd[g.end];
+          var gf = g.map(function(i) { return ~i; }).reverse().concat(f);
+          fragmentByStart[gf.start = g.end] = fragmentByEnd[gf.end = f.end] = gf;
+        } else {
+          fragmentByStart[f.start] = fragmentByEnd[f.end] = f;
+        }
+      } else if (f = fragmentByEnd[end]) {
+        delete fragmentByEnd[f.end];
+        f.push(~i);
+        f.end = start;
+        if (g = fragmentByEnd[start]) {
+          delete fragmentByStart[g.start];
+          var fg = g === f ? f : f.concat(g);
+          fragmentByStart[fg.start = f.start] = fragmentByEnd[fg.end = g.end] = fg;
+        } else if (g = fragmentByStart[start]) {
+          delete fragmentByStart[g.start];
+          delete fragmentByEnd[g.end];
+          var fg = f.concat(g.map(function(i) { return ~i; }).reverse());
+          fragmentByStart[fg.start = f.start] = fragmentByEnd[fg.end = g.start] = fg;
         } else {
           fragmentByStart[f.start] = fragmentByEnd[f.end] = f;
         }
@@ -59,35 +88,17 @@
     });
 
     function ends(i) {
-      var arc = topology.arcs[i < 0 ? ~i : i], p0 = arc[0], p1;
-      if (topology.transform) p1 = [0, 0], arc.forEach(function(dp) { p1[0] += dp[0], p1[1] += dp[1]; });
-      else p1 = arc[arc.length - 1];
-      return i < 0 ? [p1, p0] : [p0, p1];
+      var arc = topology.arcs[i], p0 = arc[0], p1 = [0, 0];
+      arc.forEach(function(dp) { p1[0] += dp[0], p1[1] += dp[1]; });
+      return [p0, p1];
     }
 
-    function flush(fragmentByEnd, fragmentByStart) {
-      for (var k in fragmentByEnd) {
-        var f = fragmentByEnd[k];
-        delete fragmentByStart[f.start];
-        delete f.start;
-        delete f.end;
-        f.forEach(function(i) { stitchedArcs[i < 0 ? ~i : i] = 1; });
-        fragments.push(f);
-      }
-    }
-
-    flush(fragmentByEnd, fragmentByStart);
-    flush(fragmentByStart, fragmentByEnd);
-    arcs.forEach(function(i) { if (!stitchedArcs[i < 0 ? ~i : i]) fragments.push([i]); });
-
+    var fragments = [];
+    for (var k in fragmentByEnd) fragments.push(fragmentByEnd[k]);
     return fragments;
   }
 
-  function mesh(topology) {
-    return object(topology, arcmesh.apply(this, arguments));
-  }
-
-  function arcmesh(topology, o, filter) {
+  function mesh(topology, o, filter) {
     var arcs = [];
 
     if (arguments.length > 1) {
@@ -95,8 +106,8 @@
           geom;
 
       function arc(i) {
-        var j = i < 0 ? ~i : i;
-        (geomsByArc[j] || (geomsByArc[j] = [])).push({i: i, g: geom});
+        if (i < 0) i = ~i;
+        (geomsByArc[i] || (geomsByArc[i] = [])).push(geom);
       }
 
       function line(arcs) {
@@ -109,7 +120,10 @@
 
       function geometry(o) {
         if (o.type === "GeometryCollection") o.geometries.forEach(geometry);
-        else if (o.type in geometryType) geom = o, geometryType[o.type](o.arcs);
+        else if (o.type in geometryType) {
+          geom = o;
+          geometryType[o.type](o.arcs);
+        }
       }
 
       var geometryType = {
@@ -122,76 +136,13 @@
       geometry(o);
 
       geomsByArc.forEach(arguments.length < 3
-          ? function(geoms) { arcs.push(geoms[0].i); }
-          : function(geoms) { if (filter(geoms[0].g, geoms[geoms.length - 1].g)) arcs.push(geoms[0].i); });
+          ? function(geoms, i) { arcs.push(i); }
+          : function(geoms, i) { if (filter(geoms[0], geoms[geoms.length - 1])) arcs.push(i); });
     } else {
       for (var i = 0, n = topology.arcs.length; i < n; ++i) arcs.push(i);
     }
 
-    return {type: "MultiLineString", arcs: stitch(topology, arcs)};
-  }
-
-  function merge(topology, objects) {
-    var polygonsByArc = {},
-        polygons = [],
-        components = [];
-
-    objects.forEach(function(o) {
-      if (o.type === "Polygon") register(o.arcs);
-      else if (o.type === "MultiPolygon") o.arcs.forEach(register);
-    });
-
-    function register(polygon) {
-      polygon.forEach(function(ring) {
-        ring.forEach(function(arc) {
-          (polygonsByArc[arc = arc < 0 ? ~arc : arc] || (polygonsByArc[arc] = [])).push(polygon);
-        });
-      });
-      polygons.push(polygon);
-    }
-
-    polygons.forEach(function(polygon) {
-      if (!polygon._) {
-        var component = [],
-            neighbors = [polygon];
-        polygon._ = 1;
-        components.push(component);
-        while (polygon = neighbors.pop()) {
-          component.push(polygon);
-          polygon.forEach(function(ring) {
-            ring.forEach(function(arc) {
-              polygonsByArc[arc < 0 ? ~arc : arc].forEach(function(polygon) {
-                if (!polygon._) {
-                  polygon._ = 1;
-                  neighbors.push(polygon);
-                }
-              });
-            });
-          });
-        }
-      }
-    });
-
-    polygons.forEach(function(polygon) {
-      delete polygon._;
-    });
-
-    return object(topology, {
-      type: "MultiPolygon",
-      arcs: components.map(function(polygons) {
-        var exterior = [];
-        polygons.forEach(function(polygon) {
-          polygon.forEach(function(ring) {
-            ring.forEach(function(arc) {
-              if (polygonsByArc[arc < 0 ? ~arc : arc].length < 2) {
-                exterior.push(arc);
-              }
-            });
-          });
-        });
-        return stitch(topology, exterior);
-      })
-    });
+    return object(topology, {type: "MultiLineString", arcs: merge(topology, arcs)});
   }
 
   function featureOrCollection(topology, o) {
