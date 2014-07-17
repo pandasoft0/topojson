@@ -91,15 +91,6 @@ suite.addBatch({
     + " --filter=none"
     + " --id-property='string.toUpperCase()'"
     + " -- properties=test/geojson/properties.json"
-  ),
-
-  "Join external properties with default id": testConversion(
-    "properties-external-default-id",
-    "--no-quantization"
-    + " --filter=none"
-    + " --external-properties=test/tsv/properties-external.tsv"
-    + " --properties=smörgåsbord=smörgåsbord"
-    + " -- properties=test/geojson/no-properties.json"
   )
 });
 
